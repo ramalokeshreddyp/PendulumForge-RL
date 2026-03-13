@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+ENV/
+
+# Models and Logs
+models/
+logs/
+*.zip
+
+# OS
+.DS_Store
+
+# Node
+node_modules/
+dist/
+.next/

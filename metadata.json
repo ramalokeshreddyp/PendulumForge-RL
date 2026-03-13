@@ -1,0 +1,5 @@
+{
+  "name": "Double Pendulum RL",
+  "description": "A reinforcement learning agent for a custom pymunk physics environment.",
+  "requestFramePermissions": []
+}

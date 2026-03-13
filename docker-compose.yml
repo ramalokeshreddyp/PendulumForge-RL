@@ -1,0 +1,41 @@
+services:
+  app:
+    build: .
+    volumes:
+      - .:/app
+
+  train:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - REWARD_TYPE=${REWARD_TYPE:-shaped}
+      - TIMESTEPS=${TIMESTEPS:-200000}
+    command: sh -c "python train.py --reward_type $$REWARD_TYPE --timesteps $$TIMESTEPS"
+
+  train_baseline:
+    build: .
+    volumes:
+      - .:/app
+    command: python train.py --reward_type baseline --timesteps 100000 --save_path models/ppo_baseline.zip
+
+  train_shaped:
+    build: .
+    volumes:
+      - .:/app
+    command: python train.py --reward_type shaped --timesteps 100000 --save_path models/ppo_shaped.zip
+
+  evaluate:
+    build: .
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - .:/app
+    command: python evaluate.py --model_path models/ppo_shaped.zip --render_mode human
+
+  plot:
+    build: .
+    volumes:
+      - .:/app
+    command: python plot_results.py
