@@ -99,7 +99,7 @@ sequenceDiagram
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd double-pendulum-rl
+cd PendulumForge-RL
 
 # Build the container
 docker-compose build
