@@ -1,8 +1,8 @@
 gymnasium==0.29.1
 pygame==2.5.2
 pymunk==6.6.0
-stable-baselines3[extra]==2.2.1
-torch==2.1.2
+stable-baselines3==2.2.1
 pandas==2.1.4
 matplotlib==3.8.2
 imageio==2.33.1
+numpy>=1.21.0,<2.0

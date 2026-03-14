@@ -8,11 +8,12 @@ from gymnasium import spaces
 class DoublePendulumEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 60}
 
-    def __init__(self, reward_type='shaped', render_mode=None):
+    def __init__(self, reward_type='shaped', render_mode=None, legacy_api=True):
         super(DoublePendulumEnv, self).__init__()
         
         self.reward_type = reward_type
         self.render_mode = render_mode
+        self.legacy_api = legacy_api
         
         # Physics constants
         self.dt = 1.0 / 60.0
@@ -40,7 +41,8 @@ class DoublePendulumEnv(gym.Env):
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
         
         # Pymunk and Pygame setup
-        self.space = None
+        self.space = pymunk.Space()
+        self.space.gravity = (0, 980)
         self.screen = None
         self.clock = None
         self.screen_width = 600
@@ -89,11 +91,15 @@ class DoublePendulumEnv(gym.Env):
         self.pole1_body.angle = self.np_random.uniform(-0.1, 0.1)
         self.pole2_body.angle = self.np_random.uniform(-0.1, 0.1)
         
-        return self._get_obs(), {}
+        obs = self._get_obs()
+        if self.legacy_api:
+            return obs
+        return obs, {}
 
     def step(self, action):
         # Apply force
-        force = action[0] * self.max_force
+        action = np.asarray(action, dtype=np.float32).reshape(-1)
+        force = float(action[0]) * self.max_force
         self.cart_body.apply_force_at_local_point((force, 0), (0, 0))
         
         # Step physics
@@ -113,8 +119,16 @@ class DoublePendulumEnv(gym.Env):
             abs(theta2) > 0.8
         )
         truncated = False
-        
-        return obs, reward, terminated, truncated, {}
+        done = terminated or truncated
+        info = {
+            "terminated": terminated,
+            "truncated": truncated,
+            "done": done,
+        }
+
+        if self.legacy_api:
+            return obs, reward, done, info
+        return obs, reward, terminated, truncated, info
 
     def _get_obs(self):
         # Normalize cart position relative to center
@@ -144,17 +158,19 @@ class DoublePendulumEnv(gym.Env):
             # Velocity penalty (stability)
             reward -= (abs(omega1) + abs(omega2)) * 0.01
             # Action penalty (energy efficiency)
-            reward -= (action[0]**2) * 0.001
+            reward -= (float(action[0])**2) * 0.001
             
         return reward
 
-    def render(self):
-        if self.render_mode is None:
+    def render(self, mode='human'):
+        active_mode = self.render_mode if self.render_mode is not None else mode
+
+        if active_mode is None:
             return
             
         if self.screen is None:
             pygame.init()
-            if self.render_mode == "human":
+            if active_mode == "human":
                 self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
             else:
                 self.screen = pygame.Surface((self.screen_width, self.screen_height))
@@ -180,7 +196,7 @@ class DoublePendulumEnv(gym.Env):
         p1_end = draw_pole(self.pole1_body, self.pole1_length, (255, 0, 0))
         draw_pole(self.pole2_body, self.pole2_length, (0, 255, 0))
 
-        if self.render_mode == "human":
+        if active_mode == "human":
             pygame.display.flip()
             self.clock.tick(self.metadata["render_fps"])
         else:

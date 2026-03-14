@@ -171,6 +171,11 @@ We implemented two distinct reward strategies to evaluate learning efficiency:
    docker-compose run plot
    ```
 
+### Submission Notes
+- Commit source and configuration files, including `environment.py`, `train.py`, `evaluate.py`, `Dockerfile`, `docker-compose.yml`, and `.env.example`.
+- Keep required deliverables in version control: `reward_comparison.png`, `media/agent_initial.gif`, and `media/agent_final.gif`.
+- Do **not** commit generated training outputs such as model archives (`models/*.zip`) or run logs (`logs/*.csv`). These are intentionally ignored by `.gitignore` and should be recreated by running the scripts.
+
 ---
 
 ## 📊 Results & Analysis

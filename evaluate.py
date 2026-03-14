@@ -19,7 +19,7 @@ def evaluate():
     args = parser.parse_args()
     
     # Create environment
-    env = DoublePendulumEnv(render_mode=args.render_mode)
+    env = DoublePendulumEnv(render_mode=args.render_mode, legacy_api=False)
     
     # Load model
     model = PPO.load(args.model_path, env=env)
