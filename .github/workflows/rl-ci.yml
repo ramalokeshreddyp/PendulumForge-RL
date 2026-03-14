@@ -1,0 +1,77 @@
+name: RL CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Docker versions
+        run: |
+          docker --version
+          docker compose version
+
+      - name: Build containers
+        run: docker compose build
+
+      - name: Baseline smoke train
+        run: |
+          docker compose run --rm app python train.py \
+            --reward_type baseline \
+            --timesteps 10 \
+            --save_path models/ppo_baseline_test.zip
+
+      - name: Shaped smoke train
+        run: |
+          docker compose run --rm app python train.py \
+            --reward_type shaped \
+            --timesteps 10 \
+            --save_path models/ppo_shaped_test.zip
+
+      - name: Baseline evaluate to GIF
+        run: |
+          docker compose run --rm -e XDG_RUNTIME_DIR=/tmp -e SDL_VIDEODRIVER=dummy app python evaluate.py \
+            --model_path models/ppo_baseline_test.zip \
+            --render_mode rgb_array \
+            --episodes 1 \
+            --save_gif media/agent_initial.gif
+
+      - name: Shaped evaluate to GIF
+        run: |
+          docker compose run --rm -e XDG_RUNTIME_DIR=/tmp -e SDL_VIDEODRIVER=dummy app python evaluate.py \
+            --model_path models/ppo_shaped_test.zip \
+            --render_mode rgb_array \
+            --episodes 2 \
+            --save_gif media/agent_final.gif
+
+      - name: Generate comparison plot
+        run: docker compose run --rm plot
+
+      - name: Contract checks
+        run: |
+          docker compose run --rm app python -c "import os, json, numpy as np, pandas as pd, pymunk; from environment import DoublePendulumEnv; req={}; req[1]=all(os.path.exists(p) for p in ['Dockerfile','docker-compose.yml']); env=DoublePendulumEnv(); req[2]=hasattr(env,'reset') and hasattr(env,'step') and hasattr(env,'render') and isinstance(env.space,pymunk.Space); req[3]=tuple(env.observation_space.shape)==(6,) and tuple(env.action_space.shape)==(1,) and float(env.action_space.low[0])==-1.0 and float(env.action_space.high[0])==1.0; env_b=DoublePendulumEnv(reward_type='baseline'); env_b.reset(); env_b.pole1_body.angle=0.0; env_b.pole2_body.angle=0.0; r_up=env_b._calculate_reward(env_b._get_obs(),np.array([0.0],dtype=np.float32)); env_b.pole1_body.angle=1.0; env_b.pole2_body.angle=1.0; r_down=env_b._calculate_reward(env_b._get_obs(),np.array([0.0],dtype=np.float32)); req[4]=r_up>r_down and r_up>0; env_s=DoublePendulumEnv(reward_type='shaped'); env_s.reset(); env_s.pole1_body.angle=0.0; env_s.pole2_body.angle=0.0; env_s.cart_body.position=(env_s.screen_width/2,300); env_s.pole1_body.angular_velocity=0.0; env_s.pole2_body.angular_velocity=0.0; r1=env_s._calculate_reward(env_s._get_obs(),np.array([0.0],dtype=np.float32)); env_s.cart_body.position=(env_s.screen_width/2+100,300); env_s.pole1_body.angular_velocity=5.0; env_s.pole2_body.angular_velocity=5.0; r2=env_s._calculate_reward(env_s._get_obs(),np.array([0.0],dtype=np.float32)); readme=open('README.md','r',encoding='utf-8').read(); req[5]=(r1!=r2) and ('### Reward Function Design' in readme); req[6]=os.path.exists('train.py'); req[7]=os.path.exists('evaluate.py'); req[8]=os.path.exists('logs/metrics_shaped.csv') and set(['timesteps','mean_reward']).issubset(set(pd.read_csv('logs/metrics_shaped.csv').columns)); req[9]=os.path.exists('reward_comparison.png') and os.path.getsize('reward_comparison.png')>0; req[10]=os.path.exists('media/agent_initial.gif') and os.path.getsize('media/agent_initial.gif')>0 and os.path.exists('media/agent_final.gif') and os.path.getsize('media/agent_final.gif')>0; req[11]=all(h in readme for h in ['### Environment Design','### Reward Function Design','### How to Run']); req[12]=os.path.exists('.env.example'); print(json.dumps(req,indent=2)); ok=all(req.values()); print('ALL_PASS', ok); raise SystemExit(0 if ok else 1)"
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rl-ci-artifacts
+          path: |
+            logs/
+            media/agent_initial.gif
+            media/agent_final.gif
+            reward_comparison.png
+          if-no-files-found: warn
